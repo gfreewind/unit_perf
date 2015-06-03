@@ -37,17 +37,20 @@ In this case, you only use the unit_perf with another dynamic module
 ### As the kernel core 
 1. Because current unit_perf uses the x86 insturction "rdtscll", so I put the unit_perf.c into the arch/x86/unit_perf/, and put the unit_perf.h into the include/linux/  
 2. Modify the arch/x86/Kbuild  
-  +obj-$(CONFIG_UNIT_PERF) += unit_perf/
+	
+	+obj-$(CONFIG_UNIT_PERF) += unit_perf/
 3. Modify the arch/x86/Kconfig.debug
-  +config UNIT_PERF
-  +       bool "Unit performance profile"  
-  +       default n  
-  +       ---help---  
-  +         Enable the unit perf funciton. You could specify the codes which you want to monitor.  
+	
+	+config UNIT_PERF
+	+       bool "Unit performance profile"  
+	+       default n  
+	+       ---help---  
+	+         Enable the unit perf funciton. You could specify the codes which you want to monitor.  
 4. Add one Makefile in arch/x86/unit_perf/  
-  +  
-  +obj-$(CONFIG_UNIT_PERF) := unit_perf.o  
-  +  
+	
+	+  
+	+obj-$(CONFIG_UNIT_PERF) := unit_perf.o  
+	+  
 Now you could use the unit_perf everywhere.
 
 
