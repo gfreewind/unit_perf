@@ -24,6 +24,7 @@ struct proc_dir_entry *unit_perf_reset_proc = NULL;
 struct cpu_cost_stats {
 	unsigned long long start;
 	unsigned long long cost;
+	unsigned long long overflow;
 };
 
 #define UNIT_PERF_MONITOR_NAME_SIZE		(32)
@@ -35,6 +36,7 @@ struct monitor_stats {
 
 struct monitor_result {
 	char name[UNIT_PERF_MONITOR_NAME_SIZE];
+	unsigned long long overflow;
 	unsigned long long cost;
 };
 
@@ -97,9 +99,7 @@ void up_start_monitor(const char *name)
 	rcu_read_lock();
 	monitor = rcu_dereference(g_up_monitor);
 	if (monitor) {
-		struct cpu_cost_stats *cost_stats = NULL;
-
-		cost_stats = get_monitor_pointer_stats(monitor, name);
+		struct cpu_cost_stats *cost_stats = get_monitor_pointer_stats(monitor, name);
 		
 		if (cost_stats) {
 			rdtscll(cost_stats->start);
@@ -119,12 +119,18 @@ void up_end_monitor(const char *name)
 	rcu_read_lock();
 	monitor = rcu_dereference(g_up_monitor);
 	if (monitor) {
-		struct cpu_cost_stats *cost_stats = NULL;
-
-		cost_stats = get_monitor_pointer_stats(monitor, name);
-		/* Check the cost_stats->start to avoid there is one replace monitor during start and end */
+		struct cpu_cost_stats *cost_stats = get_monitor_pointer_stats(monitor, name);
+		/* Check the cost_stats->start to avoid there is one new monitor during start and end */
 		if (cost_stats && cost_stats->start) {
+			unsigned long long old_cost = cost_stats->cost;
+		
 			cost_stats->cost += (end_time-cost_stats->start);
+			cost_stats->start = 0;
+
+			if (cost_stats->cost < old_cost) {
+				//overflow happens
+				cost_stats->overflow++;
+			}
 		}
 	}
 	rcu_read_unlock();
@@ -333,8 +339,15 @@ static void get_total_cpu_stats(struct monitor_result *result, struct monitor_st
 	strcpy(result->name, stats->name);
 
 	for_each_online_cpu(cpu) {
+		unsigned long long old_cost = result->cost;
+
 		cost_stats = per_cpu_ptr(stats->cost_stats, cpu);
+
+		result->overflow += cost_stats->overflow;
 		result->cost += cost_stats->cost;
+		if (result->cost < old_cost) {
+			result->overflow++;
+		}
 	}
 }
 
@@ -343,13 +356,20 @@ static int monitor_result_reverse_cmp(const void *a, const void *b)
 	const struct monitor_result *s1 = a;
 	const struct monitor_result *s2 = b;
 
-	if (s1->cost < s2->cost) {
+	/* Compare the overflow firstly */
+	if (s1->overflow < s2->overflow) {
 		return 1;
-	} else if (s1->cost > s2->cost) {
+	} else if (s1->overflow > s2->overflow) {
 		return -1;
-	} else {
-		return 0;
-	}	
+	} else {		
+		if (s1->cost < s2->cost) {
+			return 1;
+		} else if (s1->cost > s2->cost) {
+			return -1;
+		} else {
+			return 0;
+		}	
+	}
 }
 
 static void monitor_result_swap(void *a, void *b, int size)
@@ -374,7 +394,6 @@ static int up_top_seq_show(struct seq_file *s, void *v)
 		u32 result_cnt = monitor->monitor_cnt;
 		struct monitor_result *result = kmalloc(sizeof(*result)*result_cnt, GFP_KERNEL);
 		
-		printk(KERN_INFO "There are %u monitor point", result_cnt);
 		seq_printf(s, "There are %u monitor points\n", result_cnt);
 		
 		if (result) {
@@ -401,7 +420,7 @@ sort_show:
 				monitor_result_swap);
 
 			for (i = 0; i < result_cnt; ++i) {
-				seq_printf(s, "%s %llu\n", result[i].name, result[i].cost);
+				seq_printf(s, "%s %llu-%llu\n", result[i].name, result[i].overflow, result[i].cost);
 			}
 			
 		} else {
