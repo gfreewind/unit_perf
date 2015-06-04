@@ -14,6 +14,8 @@ MODULE_DESCRIPTION("unit_perf: Used to profile the specific codes");
 MODULE_ALIAS("Unit Perf");
 
 /**********************************************************************************************/
+#define TEST_UNIT_PERF
+
 #define UNIT_PERF_DIR_NAME				"unit_perf"
 struct proc_dir_entry *unit_perf_dir = NULL;
 #define UNIT_PERF_TOP_LIST				"top_list"
@@ -25,6 +27,8 @@ struct cpu_cost_stats {
 	unsigned long long start;
 	unsigned long long cost;
 	unsigned long long overflow;
+	unsigned long long call_times;
+	unsigned long long average;
 };
 
 #define UNIT_PERF_MONITOR_NAME_SIZE		(32)
@@ -38,6 +42,8 @@ struct monitor_result {
 	char name[UNIT_PERF_MONITOR_NAME_SIZE];
 	unsigned long long overflow;
 	unsigned long long cost;
+	unsigned long long call_times;
+	unsigned long long average;
 };
 
 #define UNIT_PERF_SLOT_CNT				(128)
@@ -123,9 +129,17 @@ void up_end_monitor(const char *name)
 		/* Check the cost_stats->start to avoid there is one new monitor during start and end */
 		if (cost_stats && cost_stats->start) {
 			unsigned long long old_cost = cost_stats->cost;
+			unsigned long long cost = end_time-cost_stats->start;
 		
-			cost_stats->cost += (end_time-cost_stats->start);
+			cost_stats->cost += cost;
 			cost_stats->start = 0;
+			cost_stats->call_times++;
+
+			if (likely(cost_stats->average)) {
+				cost_stats->average = (cost_stats->average+cost)/2;
+			} else {
+				cost_stats->average = cost;
+			}
 
 			if (cost_stats->cost < old_cost) {
 				//overflow happens
@@ -145,7 +159,7 @@ void up_func_once(const char *name, up_test_func cb, void *data)
 	cb(data);
 	rdtscll(end);
 
-	printk(KERN_INFO "%s costs %llu cycles", name, end-start);
+	printk(KERN_INFO "%s costs %llu cycles\n", name, end-start);
 }
 EXPORT_SYMBOL(up_func_once);
 
@@ -200,7 +214,7 @@ static struct cpu_cost_stats * get_monitor_pointer_stats(struct unit_perf_monito
 	if (find) {
 		return per_cpu_ptr(pos->cost_stats, smp_processor_id());
 	} else {
-		printk(KERN_ERR "Fail to find the monitor point(%s)", name);
+		printk(KERN_ERR "Fail to find the monitor point(%s)\n", name);
 		return NULL;
 	}
 }
@@ -221,7 +235,7 @@ static void insert_up_monitor_point(struct unit_perf_monitor *monitor, const cha
 	}
 	
 	if (find) {
-		printk(KERN_ERR "There is one duplicated monitor point already");
+		printk(KERN_ERR "There is one duplicated monitor point already\n");
 	} else {
 		pos = kmalloc(sizeof(*pos), GFP_ATOMIC);
 		if (pos) {
@@ -232,12 +246,12 @@ static void insert_up_monitor_point(struct unit_perf_monitor *monitor, const cha
 			if (pos->cost_stats) {
 				list_add_rcu(&pos->next, monitor->list+index);
 				++monitor->monitor_cnt;
-				printk(KERN_INFO "Add the new monitor point(%s)", name);
+				printk(KERN_INFO "Add the new monitor point(%s)\n", name);
 			} else {
-				printk(KERN_ERR "Fail to allocate cpu stats for %s", name);
+				printk(KERN_ERR "Fail to allocate cpu stats for %s\n", name);
 			}
 		} else {
-			printk(KERN_ERR "Fail to allocate new monitor point");
+			printk(KERN_ERR "Fail to allocate new monitor point\n");
 		}
 	}
 	
@@ -273,7 +287,7 @@ static void remove_up_monitor_point(struct unit_perf_monitor *monitor, const cha
 		kfree(pos);
 		
 	} else {
-		printk(KERN_INFO "There is no %s monitor point", name);
+		printk(KERN_INFO "There is no %s monitor point\n", name);
 	}
 }
 
@@ -334,20 +348,29 @@ static void up_generic_seq_stop(struct seq_file *s, void *v)
 static void get_total_cpu_stats(struct monitor_result *result, struct monitor_stats *stats)
 {
 	struct cpu_cost_stats *cost_stats;
+	u32 cpu_cnt;
 	u32 cpu;
 
 	strcpy(result->name, stats->name);
+	cpu_cnt = num_online_cpus();
 
 	for_each_online_cpu(cpu) {
 		unsigned long long old_cost = result->cost;
 
 		cost_stats = per_cpu_ptr(stats->cost_stats, cpu);
 
+		result->call_times += cost_stats->call_times;
 		result->overflow += cost_stats->overflow;
 		result->cost += cost_stats->cost;
 		if (result->cost < old_cost) {
 			result->overflow++;
 		}
+
+		if (result->average) {
+			result->average = (result->average+cost_stats->average)/2;
+		} else {
+			result->average = cost_stats->average;
+		}		
 	}
 }
 
@@ -386,15 +409,11 @@ static int up_top_seq_show(struct seq_file *s, void *v)
 {
 	struct unit_perf_monitor *monitor;
 
-	seq_printf(s, "Top List: \n");
-
 	rcu_read_lock();
 	monitor = rcu_dereference(g_up_monitor);
 	if (monitor && monitor->monitor_cnt) {
 		u32 result_cnt = monitor->monitor_cnt;
 		struct monitor_result *result = kmalloc(sizeof(*result)*result_cnt, GFP_KERNEL);
-		
-		seq_printf(s, "There are %u monitor points\n", result_cnt);
 		
 		if (result) {
 			u32 i;			
@@ -419,12 +438,17 @@ sort_show:
 				monitor_result_reverse_cmp,
 				monitor_result_swap);
 
+			seq_printf(s, "%-32s    %-10s    %-8s    %-22s    %-22s\n",
+				"monitor_point", "call_times", "overflow", "total_costs", "average_cost");
+
 			for (i = 0; i < result_cnt; ++i) {
-				seq_printf(s, "%s %llu-%llu\n", result[i].name, result[i].overflow, result[i].cost);
+				seq_printf(s, "%-32s    %-10llu    %-8llu    %-22llu    %-22llu\n", 
+					result[i].name, result[i].call_times,
+					result[i].overflow, result[i].cost, result[i].average);
 			}
 			
 		} else {
-			printk(KERN_ERR "Fail to allocate result memory");
+			printk(KERN_ERR "Fail to allocate result memory\n");
 		}
 	} else {
 		seq_printf(s, "No monitor point\n");
@@ -512,37 +536,72 @@ static const struct file_operations up_reset_proc_fops = {
     .release = seq_release
 };
 
+#ifdef TEST_UNIT_PERF
+static void test_monitor(void)
+{
+	up_add_monitor_point("test1");
+	up_add_monitor_point("test2");
+	up_start_monitor("test1");
+	up_start_monitor("test2");
+	up_end_monitor("test1");
+	up_end_monitor("test2");
+	up_start_monitor("test1");
+	up_start_monitor("test2");
+	up_end_monitor("test1");
+	up_end_monitor("test2");
+	up_start_monitor("test1");
+	up_start_monitor("test2");
+	up_end_monitor("test1");
+	up_end_monitor("test2");
+	up_start_monitor("test1");
+	up_start_monitor("test2");
+	up_end_monitor("test1");
+	up_end_monitor("test2");
+}
+
+static void remove_test_monitor(void)
+{
+	up_remove_monitor_point("test1");
+	up_remove_monitor_point("test2");
+}
+#endif
+
+
 static int __init unit_perf_init(void)
 {
 	int ret = -ENOENT;
 
-	printk(KERN_INFO "unit_perf init");
+	printk(KERN_INFO "Unit Perf init\n");
 
 	unit_perf_dir = proc_mkdir(UNIT_PERF_DIR_NAME, NULL);
 	if (!unit_perf_dir) {
-		printk(KERN_ERR "Fail to create unit_perf proc dir");
+		printk(KERN_ERR "Fail to create unit_perf proc dir\n");
 		goto err1;
 	}
 	unit_perf_top_proc = proc_create_data(UNIT_PERF_TOP_LIST, 0400, unit_perf_dir,
 		&up_top_proc_fops, NULL);
 	if (!unit_perf_top_proc) {
-		printk(KERN_ERR "Fail to craete the unit_perf top file");
+		printk(KERN_ERR "Fail to craete the unit_perf top file\n");
 		goto err2;
 	}
 	unit_perf_reset_proc = proc_create_data(UNIT_PERF_RESET_RESULT, 0400, unit_perf_dir,
 		&up_reset_proc_fops, NULL);
 	if (!unit_perf_reset_proc) {
-		printk(KERN_ERR "Fail to create the unit_perf reset file");
+		printk(KERN_ERR "Fail to create the unit_perf reset file\n");
 		goto err3;
 	}
 	g_up_monitor = unit_perf_monitor_alloc();
 	if (!g_up_monitor) {
 		ret = -ENOMEM;
-		printk(KERN_ERR "Fail to init unit_perf monitor");
+		printk(KERN_ERR "Fail to init unit_perf monitor\n");
 		goto err4;
 	}
 
-	printk(KERN_INFO "Unit Perf is OK now");
+	printk(KERN_INFO "Unit Perf is ready now\n");
+
+#ifdef TEST_UNIT_PERF
+	test_monitor();
+#endif	
 	return 0;
 
 err4:
@@ -558,6 +617,11 @@ err1:
 static void __exit unit_perf_exit(void)
 {	
 	struct unit_perf_monitor *monitor = g_up_monitor;
+
+#ifdef TEST_UNIT_PERF
+	remove_test_monitor();
+#endif
+	
 	rcu_assign_pointer(g_up_monitor, NULL);
 
 	synchronize_rcu();
@@ -567,7 +631,7 @@ static void __exit unit_perf_exit(void)
 	remove_proc_entry(UNIT_PERF_RESET_RESULT, unit_perf_dir);
 	remove_proc_entry(UNIT_PERF_TOP_LIST, unit_perf_dir);
 	remove_proc_entry(UNIT_PERF_DIR_NAME, NULL);
-	printk(KERN_INFO "unit_perf exit");
+	printk(KERN_INFO "Unit Perf exit now\n");
 }
 
 
