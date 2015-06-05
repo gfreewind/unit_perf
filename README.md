@@ -11,7 +11,7 @@ And you could get the result or reset it by proc
 
 ## Usage  
 ###When you want to find the bottleneck in you codes, you could use the monitor point to check it.  
-1. Use up_add_monitor_point to add the monitor point name;  
+1. Use up_add_monitor to add the monitor point name;  
 ATTENSION: It should be invoked in process/thread context. Because it will allocate memory with GFP_KERNEL  
 2. Invoke the up_start_monitor when reach the monitor point;  
 3. Invoke the up_end_monitor when reach the monitor point;  
@@ -20,7 +20,7 @@ ATTENTION: The monitor name is the index of unit perf, so you should keep it con
 cat /proc/unit_perf/top_list;  
 5. Reset the result if necessary  
 cat /proc/unit_perf/reset_result  
-6. Use up_remove_monitor_point to remove the monitor point name.  
+6. Use up_remove_monitor to remove the monitor point name.  
 
 ###When you want to check the performance of one function, you could use up_func_once to get it.  
 1. Create one function whose signature is like up_test_func (Defined in unit_perf.h);  

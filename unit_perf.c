@@ -59,44 +59,44 @@ struct unit_perf_monitor *g_up_monitor;
 typedef void (*up_test_func) (void *);
 
 /**********************************************************************************************/
-static void insert_up_monitor_point(struct unit_perf_monitor *monitor, const char *name);
-static void remove_up_monitor_point(struct unit_perf_monitor *monitor, const char *name);
+static void insert_monitor(struct unit_perf_monitor *monitor, const char *name);
+static void remove_monitor(struct unit_perf_monitor *monitor, const char *name);
 
-static struct cpu_cost_stats * get_monitor_pointer_stats(struct unit_perf_monitor *monitor, const char *name);
+static struct cpu_cost_stats * get_monitorer_stats(struct unit_perf_monitor *monitor, const char *name);
 static struct unit_perf_monitor * unit_perf_monitor_alloc(void);
 static void unit_perf_monitor_free(struct unit_perf_monitor *monitor);
 
 /**********************************************************************************************/
 
-int up_add_monitor_point(const char *name)
+int up_add_monitor(const char *name)
 {
 	struct unit_perf_monitor *monitor;
 
 	rcu_read_lock();
 	monitor = rcu_dereference(g_up_monitor);
 	if (monitor) {
-		insert_up_monitor_point(monitor, name);
+		insert_monitor(monitor, name);
 	}
 	
 	rcu_read_unlock();
 
 	return 0;
 }
-EXPORT_SYMBOL(up_add_monitor_point);
+EXPORT_SYMBOL(up_add_monitor);
 
-void up_remove_monitor_point(const char *name)
+void up_remove_monitor(const char *name)
 {
 	struct unit_perf_monitor *monitor;
 
 	rcu_read_lock();
 	monitor = rcu_dereference(g_up_monitor);
 	if (monitor) {
-		remove_up_monitor_point(monitor, name);
+		remove_monitor(monitor, name);
 	}
 	
 	rcu_read_unlock();
 }
-EXPORT_SYMBOL(up_remove_monitor_point);
+EXPORT_SYMBOL(up_remove_monitor);
 
 void up_start_monitor(const char *name)
 {
@@ -105,7 +105,7 @@ void up_start_monitor(const char *name)
 	rcu_read_lock();
 	monitor = rcu_dereference(g_up_monitor);
 	if (monitor) {
-		struct cpu_cost_stats *cost_stats = get_monitor_pointer_stats(monitor, name);
+		struct cpu_cost_stats *cost_stats = get_monitorer_stats(monitor, name);
 		
 		if (cost_stats) {
 			rdtscll(cost_stats->start);
@@ -125,7 +125,7 @@ void up_end_monitor(const char *name)
 	rcu_read_lock();
 	monitor = rcu_dereference(g_up_monitor);
 	if (monitor) {
-		struct cpu_cost_stats *cost_stats = get_monitor_pointer_stats(monitor, name);
+		struct cpu_cost_stats *cost_stats = get_monitorer_stats(monitor, name);
 		/* Check the cost_stats->start to avoid there is one new monitor during start and end */
 		if (cost_stats && cost_stats->start) {
 			unsigned long long old_cost = cost_stats->cost;
@@ -193,7 +193,7 @@ static u32 get_point_index(const char *name)
 /*
 Should be protected by rcu_read_lock
 */
-static struct cpu_cost_stats * get_monitor_pointer_stats(struct unit_perf_monitor *monitor, const char *name)
+static struct cpu_cost_stats * get_monitorer_stats(struct unit_perf_monitor *monitor, const char *name)
 {	
 	struct monitor_stats *pos;
 	bool find = false;
@@ -213,7 +213,7 @@ static struct cpu_cost_stats * get_monitor_pointer_stats(struct unit_perf_monito
 	}
 }
 
-static void insert_up_monitor_point(struct unit_perf_monitor *monitor, const char *name)
+static void insert_monitor(struct unit_perf_monitor *monitor, const char *name)
 {
 	struct monitor_stats *pos;
 	bool find = false;
@@ -255,7 +255,7 @@ static void insert_up_monitor_point(struct unit_perf_monitor *monitor, const cha
 /*
 Should protected by rcu lock
 */
-static void remove_up_monitor_point(struct unit_perf_monitor *monitor, const char *name)
+static void remove_monitor(struct unit_perf_monitor *monitor, const char *name)
 {
 	struct monitor_stats *pos;
 	bool find = false;
@@ -436,7 +436,7 @@ sort_show:
 				monitor_result_swap);
 
 			seq_printf(s, "%-32s    %-10s    %-8s    %-22s    %-22s\n",
-				"monitor_point", "call_times", "overflow", "total_costs", "average_cost");
+				"monitor", "call_times", "overflow", "total_costs", "average_cost");
 
 			for (i = 0; i < result_cnt; ++i) {
 				seq_printf(s, "%-32s    %-10llu    %-8llu    %-22llu    %-22llu\n", 
@@ -474,7 +474,7 @@ static int up_reset_seq_show(struct seq_file *s, void *v)
 				struct monitor_stats *pos;
 
 				list_for_each_entry_rcu(pos, old_monitor->list+i, next) {
-					insert_up_monitor_point(monitor, pos->name);
+					insert_monitor(monitor, pos->name);
 				}
 			}				
 		}
@@ -536,8 +536,8 @@ static const struct file_operations up_reset_proc_fops = {
 #ifdef TEST_UNIT_PERF
 static void test_monitor(void)
 {
-	up_add_monitor_point("test1");
-	up_add_monitor_point("test2");
+	up_add_monitor("test1");
+	up_add_monitor("test2");
 	up_start_monitor("test1");
 	up_start_monitor("test2");
 	up_end_monitor("test1");
@@ -558,8 +558,8 @@ static void test_monitor(void)
 
 static void remove_test_monitor(void)
 {
-	up_remove_monitor_point("test1");
-	up_remove_monitor_point("test2");
+	up_remove_monitor("test1");
+	up_remove_monitor("test2");
 }
 #endif
 
