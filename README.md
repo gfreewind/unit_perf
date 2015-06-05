@@ -10,13 +10,13 @@ Now you cold use this unit_perf to get the performance of the codes you specify 
 And you could get the result or reset it by proc
 
 ## Usage  
-###When you want to find the bottleneck in you codes, you could use the monitor point to check it.  
-1. Use up_add_monitor to add the monitor point name;  
-ATTENSION: It should be invoked in process/thread context. Because it will allocate memory with GFP_KERNEL  
-2. Invoke the up_start_monitor when reach the monitor point;  
-3. Invoke the up_end_monitor after the monitor point;  
-ATTENTION: The monitor name is the index of unit perf, so you should keep it consistent.
-4. Check the result:  
+###When you want to find the bottleneck in you codes, you could use the monitor point to check it.    
+1. Use up_add_monitor to add the monitor point name;    
+ATTENSION: It should be invoked in process/thread context. Because it will allocate memory with GFP_KERNEL    
+2. Invoke the up_start_monitor when reach the monitor point;    
+3. Invoke the up_end_monitor after the monitor point;    
+ATTENTION: The monitor name is the index of unit perf, so you should keep it consistent.  
+4. Check the result:    
 cat /proc/unit_perf/top_list;  
 5. Reset the result if necessary  
 cat /proc/unit_perf/reset_result  
@@ -28,13 +28,13 @@ cat /proc/unit_perf/reset_result
 3. Check the result by dmesg  
 
 ### Example
-Assume you want to check the performance of __nf_conntrack_alloc.
-1. Invoke the up_add_monitor("__nf_conntrack_alloc") in nf_conntrack_init_net;
-2. Invoke the up_start_monitor("__nf_conntrack_alloc") at the entry of __nf_conntrack_alloc;
-3. Invoke the up_end_monitor("__nf_conntrack_alloc") at the exit of __nf_conntrack_alloc;
-4. Invoke the up_remove_monitor("__nf_conntrack_alloc") in nf_conntrack_cleanup_net;
+Assume you want to check the performance of __nf_conntrack_alloc.  
+1. Invoke the up_add_monitor("__nf_conntrack_alloc") in nf_conntrack_init_net;  
+2. Invoke the up_start_monitor("__nf_conntrack_alloc") at the entry of __nf_conntrack_alloc;  
+3. Invoke the up_end_monitor("__nf_conntrack_alloc") at the exit of __nf_conntrack_alloc;  
+4. Invoke the up_remove_monitor("__nf_conntrack_alloc") in nf_conntrack_cleanup_net;  
 
-Note: Actuall you use any name as the monitor name when check the performance of __nf_conntrack_alloc.
+Note: Actuall you use any name as the monitor name when check the performance of __nf_conntrack_alloc.  
 
 ## How to integrate it into kernel
 ### As a dynamic module
