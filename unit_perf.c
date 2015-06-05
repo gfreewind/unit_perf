@@ -6,6 +6,7 @@
 #include <linux/spinlock.h>
 #include <linux/jhash.h>
 #include <linux/sort.h>
+#include <asm/div64.h>
 
 
 MODULE_LICENSE("GPL");
@@ -14,7 +15,7 @@ MODULE_DESCRIPTION("unit_perf: Used to profile the specific codes");
 MODULE_ALIAS("Unit Perf");
 
 /**********************************************************************************************/
-#define TEST_UNIT_PERF
+//#define TEST_UNIT_PERF
 
 #define UNIT_PERF_DIR_NAME				"unit_perf"
 struct proc_dir_entry *unit_perf_dir = NULL;
@@ -28,7 +29,6 @@ struct cpu_cost_stats {
 	unsigned long long cost;
 	unsigned long long overflow;
 	unsigned long long call_times;
-	unsigned long long average;
 };
 
 #define UNIT_PERF_MONITOR_NAME_SIZE		(32)
@@ -134,12 +134,6 @@ void up_end_monitor(const char *name)
 			cost_stats->cost += cost;
 			cost_stats->start = 0;
 			cost_stats->call_times++;
-
-			if (likely(cost_stats->average)) {
-				cost_stats->average = (cost_stats->average+cost)/2;
-			} else {
-				cost_stats->average = cost;
-			}
 
 			if (cost_stats->cost < old_cost) {
 				//overflow happens
@@ -366,11 +360,12 @@ static void get_total_cpu_stats(struct monitor_result *result, struct monitor_st
 			result->overflow++;
 		}
 
-		if (result->average) {
-			result->average = (result->average+cost_stats->average)/2;
+		if (result->call_times) {
+			result->average = cost_stats->cost;
+			do_div(result->average, result->call_times);
 		} else {
-			result->average = cost_stats->average;
-		}		
+			result->average = 0;
+		}
 	}
 }
 
