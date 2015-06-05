@@ -279,6 +279,8 @@ static void remove_up_monitor_point(struct unit_perf_monitor *monitor, const cha
 			free_percpu(pos->cost_stats);
 		}
 		kfree(pos);
+
+		printk(KERN_INFO "Remove %s monitor point successfully\n", name);
 		
 	} else {
 		printk(KERN_INFO "There is no %s monitor point\n", name);
