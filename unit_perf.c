@@ -8,7 +8,6 @@
 #include <linux/sort.h>
 #include <asm/div64.h>
 
-
 MODULE_LICENSE("GPL");
 MODULE_AUTHOR("Feng Gao <gfree.wind@gmail.com>");
 MODULE_DESCRIPTION("unit_perf: Used to profile the specific codes");
@@ -242,6 +241,7 @@ static void insert_monitor(struct unit_perf_monitor *monitor, const char *name)
 				++monitor->monitor_cnt;
 				printk(KERN_INFO "Add the new monitor point(%s)\n", name);
 			} else {
+				kfree(pos);
 				printk(KERN_ERR "Fail to allocate cpu stats for %s\n", name);
 			}
 		} else {
@@ -538,6 +538,8 @@ static void test_monitor(void)
 {
 	up_add_monitor("test1");
 	up_add_monitor("test2");
+	up_add_monitor("test_monitor");
+	UP_AUTO_START_FUNC_MONITOR();
 	up_start_monitor("test1");
 	up_start_monitor("test2");
 	up_end_monitor("test1");
@@ -554,12 +556,14 @@ static void test_monitor(void)
 	up_start_monitor("test2");
 	up_end_monitor("test1");
 	up_end_monitor("test2");
+	UP_AUTO_END_FUNC_MONITOR();
 }
 
 static void remove_test_monitor(void)
 {
 	up_remove_monitor("test1");
 	up_remove_monitor("test2");
+	up_remove_monitor("test_monitor");
 }
 #endif
 

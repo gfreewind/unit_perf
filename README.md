@@ -22,6 +22,9 @@ cat /proc/unit_perf/top_list;
 cat /proc/unit_perf/reset_result  
 6. Use up_remove_monitor to remove the monitor point name.  
 
+
+NOTE: You could use UP_AUTO_START_FUNC_MONITOR and UP_AUTO_END_FUNC_MONITOR to avoid fill the function name by yourself.
+
 ###When you want to check the performance of one function, you could use up_func_once to get it.  
 1. Create one function whose signature is like up_test_func (Defined in unit_perf.h);  
 2. Invoke the up_func_once(_preempt/bh/irq) according to your requirement.  

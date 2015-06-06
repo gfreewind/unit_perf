@@ -73,6 +73,9 @@ static void up_func_once_irq(const char *name, up_test_func cb, void *data)
 
 #endif
 
+#define UP_AUTO_START_FUNC_MONITOR()				up_start_monitor(__FUNCTION__)
+#define UP_AUTO_END_FUNC_MONITOR()					up_end_monitor(__FUNCTION__)
+
 #endif
 
 
