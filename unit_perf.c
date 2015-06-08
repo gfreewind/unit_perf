@@ -13,6 +13,9 @@ MODULE_AUTHOR("Feng Gao <gfree.wind@gmail.com>");
 MODULE_DESCRIPTION("unit_perf: Used to profile the specific codes");
 MODULE_ALIAS("Unit Perf");
 
+/*********************************  Platform Selection ********************************************/
+#define UNIT_PERF_X86
+
 /**********************************************************************************************/
 //#define TEST_UNIT_PERF
 
@@ -65,6 +68,11 @@ static struct cpu_cost_stats * get_monitorer_stats(struct unit_perf_monitor *mon
 static struct unit_perf_monitor * unit_perf_monitor_alloc(void);
 static void unit_perf_monitor_free(struct unit_perf_monitor *monitor);
 
+
+#ifdef UNIT_PERF_X86
+#define UP_GET_CPU_CYCLES(x)					rdtscll((x))	
+#endif
+
 /**********************************************************************************************/
 
 int up_add_monitor(const char *name)
@@ -107,7 +115,7 @@ void up_start_monitor(const char *name)
 		struct cpu_cost_stats *cost_stats = get_monitorer_stats(monitor, name);
 		
 		if (cost_stats) {
-			rdtscll(cost_stats->start);
+			UP_GET_CPU_CYCLES(cost_stats->start);
 		}
 	}
 	rcu_read_unlock();
@@ -119,7 +127,7 @@ void up_end_monitor(const char *name)
 	struct unit_perf_monitor *monitor;
 	unsigned long long end_time;
 
-	rdtscll(end_time);	
+	UP_GET_CPU_CYCLES(end_time);	
 
 	rcu_read_lock();
 	monitor = rcu_dereference(g_up_monitor);
@@ -148,9 +156,9 @@ void up_func_once(const char *name, up_test_func cb, void *data)
 {
 	unsigned long long start, end;
 
-	rdtscll(start);
+	UP_GET_CPU_CYCLES(start);
 	cb(data);
-	rdtscll(end);
+	UP_GET_CPU_CYCLES(end);
 
 	printk(KERN_INFO "%s costs %llu cycles\n", name, end-start);
 }
@@ -539,7 +547,7 @@ static void test_monitor(void)
 	up_add_monitor("test1");
 	up_add_monitor("test2");
 	up_add_monitor("test_monitor");
-	UP_AUTO_START_FUNC_MONITOR();
+	//UP_AUTO_START_FUNC_MONITOR();
 	up_start_monitor("test1");
 	up_start_monitor("test2");
 	up_end_monitor("test1");
@@ -556,7 +564,7 @@ static void test_monitor(void)
 	up_start_monitor("test2");
 	up_end_monitor("test1");
 	up_end_monitor("test2");
-	UP_AUTO_END_FUNC_MONITOR();
+	//UP_AUTO_END_FUNC_MONITOR();
 }
 
 static void remove_test_monitor(void)
