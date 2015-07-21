@@ -5,7 +5,9 @@ It is a performance measurement tool as the perf supplement.
 
 As we know, the perf is one good tool to find the performance bottleneck. But sometimes it is not good enough to profile our own codes especially the codes is only one part of whole system. In this case, we may don't care about the cost of the whole system. As a result, the unwanted results from other parts of system may occupies the most of top list, even we could not get the result we care really.  
 
-Now you cold use this unit_perf to get the performance of the codes you specify the aid codes clearly. Maybe they are hooks, functions, even some lines of codes.
+Now you cold use this unit_perf to get the performance of the codes you specify the aid codes clearly. Maybe they are hooks, functions, even some lines of codes.  
+
+And it provides some other help macros to debug issues. For example, you could use UP_PID_INFO_LOG to pring the log when current pid equals the specific pid by /proc/unit_perf/monitor_pid  
 
 And you could get the result or reset it by proc
 
@@ -21,6 +23,7 @@ cat /proc/unit_perf/top_list;
 5. Reset the result if necessary  
 cat /proc/unit_perf/reset_result  
 6. Use up_remove_monitor to remove the monitor point name.  
+7. Use /proc/unit_perf/monitor_pid to set the monitor pid which could filter the logs.  
 
 
 NOTE: You could use UP_AUTO_START_FUNC_MONITOR and UP_AUTO_END_FUNC_MONITOR to avoid fill the function name by yourself.
