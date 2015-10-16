@@ -87,7 +87,7 @@ static void up_func_once_irq(const char *name, up_test_func cb, void *data)
 	{ \
 		UP_AUTO_START_FUNC_MONITOR();
 #define UP_SAFE_AUTO_END_FUNC_MONITOR() \
-		UP_SAFE_END_MONITOR(); \
+		UP_AUTO_END_FUNC_MONITOR(); \
 	}
 
 extern unsigned long g_up_monitor_pid __read_mostly;
