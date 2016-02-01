@@ -26,9 +26,9 @@ typedef void (*up_test_func) (void *);
 
 #ifdef CONFIG_UNIT_PERF
 extern int up_add_monitor(const char *name);
-extern void up_remove_monitor(const char *name);
-extern void up_start_monitor(const char *name);
-extern void up_end_monitor(const char *name);
+extern void up_remove_monitor(int md);
+extern void up_start_monitor(int md);
+extern void up_end_monitor(int md);
 
 /* Invoke the func directly */
 extern void up_func_once(const char *name, up_test_func cb, void *data);
@@ -45,16 +45,16 @@ static inline int up_add_monitor(const char *name)
 	return 0;
 }
 
-static inline void up_remove_monitor(const char *name)
+static inline void up_remove_monitor(int md)
 {
 }
 
-static inline void up_start_monitor(const char *name)
+static inline void up_start_monitor(int md)
 {
 	
 }
 
-static inline void up_end_monitor(const char *name)
+static inline void up_end_monitor(int md)
 {
 }
 
@@ -76,19 +76,7 @@ static void up_func_once_irq(const char *name, up_test_func cb, void *data)
 #define UP_AUTO_START_FUNC_MONITOR()				up_start_monitor(__FUNCTION__)
 #define UP_AUTO_END_FUNC_MONITOR()					up_end_monitor(__FUNCTION__)
 
-#define UP_SAFE_START_MONITOR(name) \
-	{ \
-		up_start_monitor(name);
-#define UP_SAFE_END_MONITOR(name) \
-		up_end_monitor(name); \
-	}
 
-#define UP_SAFE_AUTO_START_FUNC_MONITOR() \
-	{ \
-		UP_AUTO_START_FUNC_MONITOR();
-#define UP_SAFE_AUTO_END_FUNC_MONITOR() \
-		UP_AUTO_END_FUNC_MONITOR(); \
-	}
 
 extern unsigned long g_up_monitor_pid __read_mostly;
 
@@ -96,7 +84,6 @@ extern unsigned long g_up_monitor_pid __read_mostly;
 	if (g_up_monitor_pid == current->pid) { \
 		printk(KERN_INFO  "[UnitPerf]:"__VA_ARGS__); \
 	}
-
 
 #endif
 
