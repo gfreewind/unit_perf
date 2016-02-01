@@ -109,7 +109,7 @@ void up_start_monitor(int md)
 {
 	struct unit_perf_monitor *monitor;
 
-	if (unlikely(md >= UNIT_PERF_SLOT_CNT)) {
+	if (unlikely(md >= UNIT_PERF_SLOT_CNT || md < 0)) {
 		return;
 	}
 
@@ -118,7 +118,14 @@ void up_start_monitor(int md)
 	if (likely(monitor)) {
 		struct cpu_cost_stats *cost_stats = per_cpu_ptr(monitor->monitors[md].cost_stats,
 			smp_processor_id());
-		UP_GET_CPU_CYCLES(cost_stats->start);
+		if (likely(cost_stats)) {
+			UP_GET_CPU_CYCLES(cost_stats->start);
+		} else {
+			if (net_ratelimit()) {
+				pr_err("UnitPerf: CPU(%d) md(%d) cost_stats is NULL",
+					smp_processor_id(), md);
+			}
+		}
 	}	
 	rcu_read_unlock();
 }
@@ -129,7 +136,7 @@ void up_end_monitor(int md)
 	struct unit_perf_monitor *monitor;
 	unsigned long long end_time;
 
-	if (unlikely(md >= UNIT_PERF_SLOT_CNT)) {
+	if (unlikely(md >= UNIT_PERF_SLOT_CNT || md < 0)) {
 		return;
 	}
 
@@ -141,17 +148,29 @@ void up_end_monitor(int md)
 		struct cpu_cost_stats *cost_stats = per_cpu_ptr(monitor->monitors[md].cost_stats,
 			smp_processor_id());
 
-		if (cost_stats->start) {
-			unsigned long long old_cost = cost_stats->cost;
-			unsigned long long cost = end_time-cost_stats->start;
-
-			cost_stats->cost += cost;
-			cost_stats->start = 0;
-			cost_stats->call_times++;
-
-			if (cost_stats->cost < old_cost) {
-				//Overflow happens
-				cost_stats->overflow++;
+		if (likely(cost_stats)) {			
+			if (likely(cost_stats->start)) {
+				unsigned long long old_cost = cost_stats->cost;
+				unsigned long long cost = end_time-cost_stats->start;
+			
+				cost_stats->cost += cost;
+				cost_stats->start = 0;
+				cost_stats->call_times++;
+			
+				if (cost_stats->cost < old_cost) {
+					//Overflow happens
+					cost_stats->overflow++;
+				}
+			} else {				
+				if (net_ratelimit()) {
+					pr_err("UnitPerf: CPU(%d) md(%d) cost_stats->start is 0",
+						smp_processor_id(), md);
+				}
+			}
+		} else {			
+			if (net_ratelimit()) {
+				pr_err("UnitPerf: CPU(%d) md(%d) cost_stats is NULL",
+					smp_processor_id(), md);
 			}
 		}
 	}
@@ -236,7 +255,7 @@ Should protected by rcu lock
 */
 static void remove_monitor(struct unit_perf_monitor *monitor, int md)
 {
-	if (-1 == md || md >= UNIT_PERF_SLOT_CNT) {
+	if (md < 0 || md >= UNIT_PERF_SLOT_CNT) {
 		pr_err("UnitPerf: Invalid md\n");
 		return;
 	}
