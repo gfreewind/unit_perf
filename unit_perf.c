@@ -18,7 +18,7 @@ MODULE_ALIAS("Unit Perf");
 #define UNIT_PERF_X86
 
 /**********************************************************************************************/
-#define TEST_UNIT_PERF
+//#define TEST_UNIT_PERF
 
 #define UNIT_PERF_DIR_NAME				"unit_perf"
 struct proc_dir_entry *unit_perf_dir = NULL;
