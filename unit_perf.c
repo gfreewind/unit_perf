@@ -84,6 +84,8 @@ int up_add_monitor(const char *name)
 	monitor = rcu_dereference(g_up_monitor);
 	if (monitor) {
 		ret = insert_monitor(monitor, name);
+	} else {
+		pr_err("UnitPerf: g_up_monitor is null\n");
 	}
 	
 	rcu_read_unlock();
@@ -122,7 +124,7 @@ void up_start_monitor(int md)
 			UP_GET_CPU_CYCLES(cost_stats->start);
 		} else {
 			if (net_ratelimit()) {
-				pr_err("UnitPerf: CPU(%d) md(%d) cost_stats is NULL",
+				pr_err("UnitPerf: CPU(%d) md(%d) cost_stats is NULL\n",
 					smp_processor_id(), md);
 			}
 		}
@@ -163,13 +165,13 @@ void up_end_monitor(int md)
 				}
 			} else {				
 				if (net_ratelimit()) {
-					pr_err("UnitPerf: CPU(%d) md(%d) cost_stats->start is 0",
+					pr_err("UnitPerf: CPU(%d) md(%d) cost_stats->start is 0\n",
 						smp_processor_id(), md);
 				}
 			}
 		} else {			
 			if (net_ratelimit()) {
-				pr_err("UnitPerf: CPU(%d) md(%d) cost_stats is NULL",
+				pr_err("UnitPerf: CPU(%d) md(%d) cost_stats is NULL\n",
 					smp_processor_id(), md);
 			}
 		}
